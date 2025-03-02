@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -29,19 +30,34 @@
       min-height: 100vh; padding: 10px;
     }
     h1 { margin-bottom: 20px; }
+    /* Top controls for Pause and Reset outside game screen */
+    .controls-top {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    .controls-top button {
+      background: black; color: var(--retro-green);
+      border: 2px solid var(--border-color); font-size: 1.2rem;
+      padding: 10px 20px; cursor: pointer; border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .controls-top button:hover { background: var(--border-color); }
+    /* Game container */
     .game-container { position: relative; width: 300px; height: 500px; }
     canvas {
       background: black; border: 2px solid var(--border-color);
       border-radius: 10px; box-shadow: 0 0 20px var(--retro-green);
       image-rendering: pixelated; width: 100%; height: 100%; display: block;
     }
-    /* Score, Level and Lives overlay */
+    /* Score overlay inside game container */
     .score {
       position: absolute; top: 10px; left: 10px;
       font-size: 1.2rem; background: rgba(0,0,0,0.5);
       padding: 5px 10px; border-radius: 5px; z-index: 2;
     }
-    /* Start / Game Over overlay */
+    /* Start / Game Over overlay remains inside the game container */
     #startOverlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.8); display: flex; align-items: center;
@@ -54,30 +70,23 @@
       transition: background 0.2s;
     }
     #startOverlay button:hover { background: var(--border-color); }
-    /* Controls overlay (Pause/Reset) */
-    #controlOverlay {
-      position: absolute; top: 10px; right: 10px; z-index: 2;
+    /* Revised D-pad and Fire controls */
+    .controls {
+      margin-top: 20px; width: 300px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .movement-controls {
       display: flex; gap: 10px;
     }
-    #controlOverlay button {
-      background: black; color: var(--retro-green);
-      border: 2px solid var(--border-color); font-size: 1rem;
-      padding: 5px 10px; cursor: pointer; border-radius: 5px;
-      transition: background 0.2s;
-    }
-    #controlOverlay button:hover { background: var(--border-color); }
-    /* D-pad controls placed outside the game container */
-    .dpad {
-      margin-top: 20px; width: 300px;
-      display: flex; justify-content: space-evenly; align-items: center;
-    }
-    .dpad button {
+    .movement-controls button,
+    .fire-control button {
       background: black; color: var(--retro-green);
       border: 2px solid var(--border-color); font-size: 1.5rem;
       padding: 10px; border-radius: 50%; width: 70px; height: 70px;
       cursor: pointer; transition: background 0.2s;
     }
-    .dpad button:active { background: var(--border-color); }
+    .movement-controls button:active,
+    .fire-control button:active { background: var(--border-color); }
     /* Credits styling */
     .credits {
       margin-top: 20px; font-size: 0.9rem; text-align: center;
@@ -85,33 +94,37 @@
     /* Mobile adjustments */
     @media (max-width: 600px) {
       .game-container { width: 90%; height: auto; }
-      .dpad { width: 90%; }
+      .controls, .controls-top { width: 90%; }
     }
   </style>
 </head>
 <body>
   <div id="mainWrapper">
     <h1>Retro Space Invaders</h1>
+    <!-- Top controls for Pause and Reset -->
+    <div class="controls-top">
+      <button id="pauseButton">Pause</button>
+      <button id="resetButton">Reset</button>
+    </div>
     <div class="game-container">
       <canvas id="gameCanvas" width="300" height="500"></canvas>
       <div class="score">
-        Score: <span id="score">0</span> | Level: <span id="level">1</span> | Lives: <span id="lives">3</span>
-      </div>
-      <!-- Pause and Reset buttons -->
-      <div id="controlOverlay">
-        <button id="pauseButton">Pause</button>
-        <button id="resetButton">Reset</button>
+        Score: <span id="score">0</span> | Level: <span id="level">1</span> | Lives: <span id="lives"></span>
       </div>
       <!-- Start / Game Over overlay (initially shows Start) -->
       <div id="startOverlay">
         <button id="startGame">▶ Start Game</button>
       </div>
     </div>
-    <!-- D-pad controls placed outside the game container -->
-    <div class="dpad">
-      <button id="dpad-left">←</button>
-      <button id="fireButton">Fire</button>
-      <button id="dpad-right">→</button>
+    <!-- Revised Controls: Directional buttons on left, Fire on right -->
+    <div class="controls">
+      <div class="movement-controls">
+        <button id="dpad-left">←</button>
+        <button id="dpad-right">→</button>
+      </div>
+      <div class="fire-control">
+        <button id="fireButton">Fire</button>
+      </div>
     </div>
     <!-- Credits -->
     <div class="credits">Credits: cantinhode.net code academy</div>
@@ -151,6 +164,12 @@
     let lives = 3;
     let alienSpeed = 1; // for normal levels
     let bossMode = false; // indicates boss level
+
+    // Helper function to update the lives display as hearts.
+    function updateLivesDisplay() {
+      // Using a Unicode heart (♥) for each life.
+      livesElement.innerText = "♥".repeat(lives);
+    }
 
     // Player spaceship.
     const spaceship = { width: 30, height: 20, x: canvas.width/2 - 15, y: canvas.height - 40, speed: 5 };
@@ -192,9 +211,9 @@
     function createAliens() {
       aliens = [];
       const rows = 3, cols = 6, alienWidth = 20, alienHeight = 15, padding = 10, offsetX = 30, offsetY = 30;
-      for(let r=0; r<rows; r++){
-        for(let c=0; c<cols; c++){
-          aliens.push({ x: offsetX + c*(alienWidth+padding), y: offsetY + r*(alienHeight+padding), width: alienWidth, height: alienHeight, alive: true });
+      for(let r = 0; r < rows; r++){
+        for(let c = 0; c < cols; c++){
+          aliens.push({ x: offsetX + c * (alienWidth + padding), y: offsetY + r * (alienHeight + padding), width: alienWidth, height: alienHeight, alive: true });
         }
       }
     }
@@ -210,29 +229,29 @@
       ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--retro-green');
       ctx.beginPath(); // turret
       ctx.moveTo(spaceship.x + spaceship.width/2, spaceship.y);
-      ctx.lineTo(spaceship.x + spaceship.width*0.3, spaceship.y + spaceship.height*0.5);
-      ctx.lineTo(spaceship.x + spaceship.width*0.7, spaceship.y + spaceship.height*0.5);
+      ctx.lineTo(spaceship.x + spaceship.width * 0.3, spaceship.y + spaceship.height * 0.5);
+      ctx.lineTo(spaceship.x + spaceship.width * 0.7, spaceship.y + spaceship.height * 0.5);
       ctx.closePath(); ctx.fill();
-      ctx.fillRect(spaceship.x + spaceship.width*0.2, spaceship.y + spaceship.height*0.5, spaceship.width*0.6, spaceship.height*0.5); // base
+      ctx.fillRect(spaceship.x + spaceship.width * 0.2, spaceship.y + spaceship.height * 0.5, spaceship.width * 0.6, spaceship.height * 0.5); // base
       ctx.fillStyle = "black"; // cockpit
-      ctx.fillRect(spaceship.x + spaceship.width*0.45, spaceship.y + spaceship.height*0.2, spaceship.width*0.1, spaceship.height*0.2);
+      ctx.fillRect(spaceship.x + spaceship.width * 0.45, spaceship.y + spaceship.height * 0.2, spaceship.width * 0.1, spaceship.height * 0.2);
     }
 
     // Draw a single alien.
     function drawAlien(alien) {
       ctx.fillStyle = "#FF0000";
       ctx.beginPath();
-      ctx.moveTo(alien.x + alien.width*0.1, alien.y);
-      ctx.lineTo(alien.x + alien.width*0.9, alien.y);
-      ctx.lineTo(alien.x + alien.width, alien.y + alien.height*0.5);
-      ctx.lineTo(alien.x + alien.width*0.9, alien.y + alien.height);
-      ctx.lineTo(alien.x + alien.width*0.1, alien.y + alien.height);
-      ctx.lineTo(alien.x, alien.y + alien.height*0.5);
+      ctx.moveTo(alien.x + alien.width * 0.1, alien.y);
+      ctx.lineTo(alien.x + alien.width * 0.9, alien.y);
+      ctx.lineTo(alien.x + alien.width, alien.y + alien.height * 0.5);
+      ctx.lineTo(alien.x + alien.width * 0.9, alien.y + alien.height);
+      ctx.lineTo(alien.x + alien.width * 0.1, alien.y + alien.height);
+      ctx.lineTo(alien.x, alien.y + alien.height * 0.5);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = "black";
-      const eyeSize = alien.width*0.15;
-      ctx.fillRect(alien.x + alien.width*0.3 - eyeSize/2, alien.y + alien.height*0.4 - eyeSize/2, eyeSize, eyeSize);
-      ctx.fillRect(alien.x + alien.width*0.7 - eyeSize/2, alien.y + alien.height*0.4 - eyeSize/2, eyeSize, eyeSize);
+      const eyeSize = alien.width * 0.15;
+      ctx.fillRect(alien.x + alien.width * 0.3 - eyeSize / 2, alien.y + alien.height * 0.4 - eyeSize / 2, eyeSize, eyeSize);
+      ctx.fillRect(alien.x + alien.width * 0.7 - eyeSize / 2, alien.y + alien.height * 0.4 - eyeSize / 2, eyeSize, eyeSize);
     }
     function drawAliens() { aliens.forEach(a => { if(a.alive) drawAlien(a); }); }
 
@@ -245,7 +264,7 @@
         ctx.fillStyle = "black";
         ctx.fillRect(boss.x, boss.y - 10, boss.width, 5);
         ctx.fillStyle = "lime";
-        ctx.fillRect(boss.x, boss.y - 10, boss.width * (boss.health/boss.maxHealth), 5);
+        ctx.fillRect(boss.x, boss.y - 10, boss.width * (boss.health / boss.maxHealth), 5);
       }
     }
 
@@ -276,7 +295,7 @@
           enemyBullets.splice(i, 1);
           spawnExplosion(spaceship.x + spaceship.width/2, spaceship.y + spaceship.height/2, 'yellow');
           lives--;
-          livesElement.innerText = lives;
+          updateLivesDisplay();
           if(lives <= 0) { gameOver(); return; }
           else { spaceship.x = canvas.width/2 - spaceship.width/2; }
         }
@@ -412,7 +431,8 @@
     // Start or restart game.
     function startGame() {
       score = 0; level = 1; lives = 3;
-      scoreElement.innerText = score; levelElement.innerText = level; livesElement.innerText = lives;
+      scoreElement.innerText = score; levelElement.innerText = level;
+      updateLivesDisplay();
       spaceship.x = canvas.width/2 - spaceship.width/2;
       bullets = []; enemyBullets = []; explosions = [];
       bossMode = false; alienSpeed = 1;
@@ -452,7 +472,8 @@
       gameActive = false; gamePaused = false;
       startOverlay.style.display = "flex";
       score = 0; level = 1; lives = 3;
-      scoreElement.innerText = score; levelElement.innerText = level; livesElement.innerText = lives;
+      scoreElement.innerText = score; levelElement.innerText = level;
+      updateLivesDisplay();
     }
 
     // Create player's bullet.
